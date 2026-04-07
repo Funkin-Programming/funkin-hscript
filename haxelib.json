@@ -1,0 +1,14 @@
+{
+  "name": "funkin-hscript",
+  "url": "https://github.com/Funkin-Programming/funkin-hscript",
+  "license": "MIT",
+  "tags": ["hscript", "haxe", "fnf", "funkin", "modding"],
+  "description": "HScript implementation customized for Friday Night Funkin' engines.",
+  "version": "1.0.0",
+  "releasenote": "First public release of funkin-hscript.",
+  "contributors": ["Funkin-Programming"],
+  "classPath": "src",
+  "dependencies": {
+    "hscript": ""
+  }
+}
