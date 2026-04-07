@@ -4,18 +4,30 @@ import haxe.ds.StringMap;
 import sys.io.File;
 import sys.FileSystem;
 
-// integrações
+// Sistemas integrados
 import funkin.menus.MenuScripter;
 import discord.DiscordScripter;
+import google.GoogleCloud;
 
 class HScripter
 {
 	public static var scripts:StringMap<FunkinHScript> = new StringMap();
+	public static var scriptOrder:Array<String> = [];
 
 	// ==============================
-	// 🚀 LOAD SCRIPT
+	// 🚀 INIT
 	// ==============================
-	public static function loadScript(name:String, path:String)
+	public static function init()
+	{
+		GoogleCloud.init(); // 🔗 integração com cloud
+
+		trace("[HScripter] Initialized");
+	}
+
+	// ==============================
+	// 📥 LOAD SCRIPT
+	// ==============================
+	public static function loadScript(name:String, path:String, ?tag:String = "default")
 	{
 		if(!FileSystem.exists(path))
 		{
@@ -26,36 +38,17 @@ class HScripter
 		var code:String = File.getContent(path);
 		var script = new FunkinHScript(name);
 
-		// 🔗 INTEGRAÇÃO GLOBAL API
 		injectGlobals(script);
+
+		script.set("scriptTag", tag);
 
 		script.load(code);
 		script.create();
 
 		scripts.set(name, script);
+		scriptOrder.push(name);
 
-		trace('[HScripter] Loaded: ' + name);
-	}
-
-	// ==============================
-	// 🔗 INJECT GLOBAL API
-	// ==============================
-	static function injectGlobals(script:FunkinHScript)
-	{
-		// ================= MENU =================
-		script.set("addMenuItem", MenuScripter.addItem);
-		script.set("setMenuItemPos", MenuScripter.setItemPos);
-		script.set("setMenuItemText", MenuScripter.setItemText);
-
-		// ================= DISCORD =================
-		script.set("setRPC", DiscordScripter.setRPC);
-		script.set("setRPCDetails", DiscordScripter.setDetails);
-		script.set("setRPCState", DiscordScripter.setState);
-
-		// ================= GLOBAL =================
-		script.set("callGlobal", call);
-		script.set("setGlobal", setGlobal);
-		script.set("getGlobal", getGlobal);
+		trace('[HScripter] Loaded: ' + name + ' (tag: ' + tag + ')');
 	}
 
 	// ==============================
@@ -75,31 +68,60 @@ class HScripter
 	}
 
 	// ==============================
+	// 🔗 GLOBAL API
+	// ==============================
+	static function injectGlobals(script:FunkinHScript)
+	{
+		// ================= CORE =================
+		script.set("callGlobal", call);
+		script.set("setGlobal", setGlobal);
+		script.set("getGlobal", getGlobal);
+
+		// ================= MENU =================
+		script.set("addMenuItem", MenuScripter.addItem);
+		script.set("setMenuItemPos", MenuScripter.setItemPos);
+		script.set("setMenuItemText", MenuScripter.setItemText);
+
+		// ================= DISCORD =================
+		script.set("setRPC", DiscordScripter.setRPC);
+
+		// ================= GOOGLE CLOUD =================
+		script.set("cloudSet", GoogleCloud.set);
+		script.set("cloudGet", GoogleCloud.get);
+		script.set("cloudSave", GoogleCloud.save);
+		script.set("cloudLoad", GoogleCloud.load);
+
+		// ================= DEBUG =================
+		script.set("print", trace);
+	}
+
+	// ==============================
 	// 🔄 UPDATE
 	// ==============================
 	public static function update(elapsed:Float)
 	{
-		for(script in scripts)
+		for(name in scriptOrder)
 		{
-			script.update(elapsed);
+			var script = scripts.get(name);
+			if(script != null)
+				script.update(elapsed);
 		}
 
-		// integração com sistemas
 		MenuScripter.update(elapsed);
 		DiscordScripter.update(elapsed);
-	}
-
-	// ==============================
-	// 🎮 GAMEPLAY EVENTS
-	// ==============================
-	public static function create()
-	{
-		call("onCreate");
 	}
 
 	public static function updatePost(elapsed:Float)
 	{
 		call("onUpdatePost", [elapsed]);
+	}
+
+	// ==============================
+	// 🎮 EVENTS
+	// ==============================
+	public static function create()
+	{
+		call("onCreate");
 	}
 
 	public static function beatHit(curBeat:Int)
@@ -120,6 +142,7 @@ class HScripter
 	public static function pause()
 	{
 		call("onPause");
+		GoogleCloud.save(); // 🔗 salva automaticamente
 	}
 
 	public static function resume()
@@ -130,6 +153,7 @@ class HScripter
 	public static function gameOver()
 	{
 		call("onGameOver");
+		GoogleCloud.save(); // 🔗 salva automaticamente
 	}
 
 	// ==============================
@@ -137,9 +161,11 @@ class HScripter
 	// ==============================
 	public static function call(func:String, args:Array<Dynamic> = null)
 	{
-		for(script in scripts)
+		for(name in scriptOrder)
 		{
-			script.call(func, args);
+			var script = scripts.get(name);
+			if(script != null)
+				script.call(func, args);
 		}
 	}
 
@@ -165,6 +191,36 @@ class HScripter
 	}
 
 	// ==============================
+	// 🔄 HOT RELOAD (BASE)
+	// ==============================
+	public static function reloadScript(name:String, path:String)
+	{
+		if(scripts.exists(name))
+		{
+			scripts.get(name).destroy();
+			scripts.remove(name);
+		}
+
+		loadScript(name, path);
+
+		trace("[HScripter] Reloaded: " + name);
+	}
+
+	// ==============================
+	// ❌ REMOVE
+	// ==============================
+	public static function removeScript(name:String)
+	{
+		if(!scripts.exists(name)) return;
+
+		scripts.get(name).destroy();
+		scripts.remove(name);
+		scriptOrder.remove(name);
+
+		trace("[HScripter] Removed: " + name);
+	}
+
+	// ==============================
 	// 🔥 CLEAR
 	// ==============================
 	public static function clear()
@@ -175,6 +231,8 @@ class HScripter
 		}
 
 		scripts = new StringMap();
-		trace('[HScripter] Cleared all scripts');
+		scriptOrder = [];
+
+		trace("[HScripter] Cleared all scripts");
 	}
 }
