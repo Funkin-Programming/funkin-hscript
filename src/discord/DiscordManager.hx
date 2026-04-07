@@ -1,6 +1,7 @@
 package discord;
 
 import haxe.Timer;
+import discord.DiscordClient;
 
 class DiscordManager
 {
@@ -13,7 +14,7 @@ class DiscordManager
 	public static var smallImage:String = "";
 	public static var startTimestamp:Float = 0;
 
-	// Cache (evitar spam)
+	// Cache anti-spam
 	static var lastDetails:String = "";
 	static var lastState:String = "";
 	static var lastLarge:String = "";
@@ -27,12 +28,10 @@ class DiscordManager
 	{
 		if(initialized) return;
 
+		DiscordClient.initialize();
 		initialized = true;
 
-		// ⚠️ Substitua pelo teu client real
-		DiscordClient.initialize();
-
-		trace("[Discord] Initialized");
+		trace("[DiscordManager] Initialized");
 	}
 
 	// ==============================
@@ -42,11 +41,10 @@ class DiscordManager
 	{
 		if(!initialized) return;
 
+		DiscordClient.shutdown();
 		initialized = false;
 
-		DiscordClient.shutdown();
-
-		trace("[Discord] Shutdown");
+		trace("[DiscordManager] Shutdown");
 	}
 
 	// ==============================
@@ -86,7 +84,7 @@ class DiscordManager
 	{
 		if(!initialized) return;
 
-		// Evita spam de updates
+		// Evita spam
 		if(
 			details == lastDetails &&
 			state == lastState &&
@@ -116,7 +114,7 @@ class DiscordManager
 		}
 		catch(e)
 		{
-			trace("[Discord ERROR]: " + e);
+			trace("[DiscordManager ERROR]: " + e);
 		}
 	}
 
@@ -126,6 +124,7 @@ class DiscordManager
 	public static function setElapsedTime()
 	{
 		startTimestamp = Timer.stamp();
+		updatePresence();
 	}
 
 	public static function reset()
