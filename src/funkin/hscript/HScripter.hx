@@ -4,6 +4,10 @@ import haxe.ds.StringMap;
 import sys.io.File;
 import sys.FileSystem;
 
+// integrações
+import funkin.menus.MenuScripter;
+import discord.DiscordScripter;
+
 class HScripter
 {
 	public static var scripts:StringMap<FunkinHScript> = new StringMap();
@@ -22,12 +26,36 @@ class HScripter
 		var code:String = File.getContent(path);
 		var script = new FunkinHScript(name);
 
+		// 🔗 INTEGRAÇÃO GLOBAL API
+		injectGlobals(script);
+
 		script.load(code);
 		script.create();
 
 		scripts.set(name, script);
 
 		trace('[HScripter] Loaded: ' + name);
+	}
+
+	// ==============================
+	// 🔗 INJECT GLOBAL API
+	// ==============================
+	static function injectGlobals(script:FunkinHScript)
+	{
+		// ================= MENU =================
+		script.set("addMenuItem", MenuScripter.addItem);
+		script.set("setMenuItemPos", MenuScripter.setItemPos);
+		script.set("setMenuItemText", MenuScripter.setItemText);
+
+		// ================= DISCORD =================
+		script.set("setRPC", DiscordScripter.setRPC);
+		script.set("setRPCDetails", DiscordScripter.setDetails);
+		script.set("setRPCState", DiscordScripter.setState);
+
+		// ================= GLOBAL =================
+		script.set("callGlobal", call);
+		script.set("setGlobal", setGlobal);
+		script.set("getGlobal", getGlobal);
 	}
 
 	// ==============================
@@ -47,32 +75,7 @@ class HScripter
 	}
 
 	// ==============================
-	// ❌ REMOVE SCRIPT
-	// ==============================
-	public static function removeScript(name:String)
-	{
-		if(scripts.exists(name))
-		{
-			var script = scripts.get(name);
-			script.destroy();
-
-			scripts.remove(name);
-
-			trace('[HScripter] Removed: ' + name);
-		}
-	}
-
-	// ==============================
-	// 🔄 RELOAD SCRIPT
-	// ==============================
-	public static function reloadScript(name:String, path:String)
-	{
-		removeScript(name);
-		loadScript(name, path);
-	}
-
-	// ==============================
-	// 🔄 UPDATE ALL
+	// 🔄 UPDATE
 	// ==============================
 	public static function update(elapsed:Float)
 	{
@@ -80,25 +83,53 @@ class HScripter
 		{
 			script.update(elapsed);
 		}
+
+		// integração com sistemas
+		MenuScripter.update(elapsed);
+		DiscordScripter.update(elapsed);
 	}
 
 	// ==============================
-	// 🎵 EVENTS
+	// 🎮 GAMEPLAY EVENTS
 	// ==============================
+	public static function create()
+	{
+		call("onCreate");
+	}
+
+	public static function updatePost(elapsed:Float)
+	{
+		call("onUpdatePost", [elapsed]);
+	}
+
 	public static function beatHit(curBeat:Int)
 	{
-		for(script in scripts)
-		{
-			script.beatHit(curBeat);
-		}
+		call("onBeatHit", [curBeat]);
 	}
 
 	public static function stepHit(curStep:Int)
 	{
-		for(script in scripts)
-		{
-			script.stepHit(curStep);
-		}
+		call("onStepHit", [curStep]);
+	}
+
+	public static function songStart()
+	{
+		call("onSongStart");
+	}
+
+	public static function pause()
+	{
+		call("onPause");
+	}
+
+	public static function resume()
+	{
+		call("onResume");
+	}
+
+	public static function gameOver()
+	{
+		call("onGameOver");
 	}
 
 	// ==============================
@@ -113,7 +144,7 @@ class HScripter
 	}
 
 	// ==============================
-	// 🧠 GLOBAL VARIABLES
+	// 🧠 GLOBAL VARS
 	// ==============================
 	public static function setGlobal(name:String, value:Dynamic)
 	{
@@ -134,7 +165,7 @@ class HScripter
 	}
 
 	// ==============================
-	// 🔥 CLEAR ALL
+	// 🔥 CLEAR
 	// ==============================
 	public static function clear()
 	{
