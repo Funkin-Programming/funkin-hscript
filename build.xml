@@ -1,0 +1,5 @@
+<files id="haxe">
+	<file name="native/discord_rpc.cpp" />
+</files>
+
+<include name="native" />
